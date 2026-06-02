@@ -103,6 +103,50 @@ Expected response:
 }
 ```
 
+## Docker
+
+The API is containerized with a **multi-stage** `Dockerfile`: the first stage compiles the TypeScript sources, the second stage installs **production dependencies only** and runs the compiled `dist/`. The `docker-compose.yml` orchestrates two services — the API and a MongoDB instance — with a named volume for persistence and health checks to coordinate startup.
+
+### Run with Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+Compose starts MongoDB first, waits until it is **healthy**, then starts the API. The API is available at **http://localhost:3000** (Swagger at `http://localhost:3000/api/docs`).
+
+```bash
+# Check health
+curl http://localhost:3000/health
+
+# Stop the stack (keeps the data volume)
+docker compose down
+
+# Stop and remove the data volume
+docker compose down -v
+```
+
+### Services
+
+| Service | Image | Notes |
+|---|---|---|
+| `api` | built from `Dockerfile` | port `3000:3000`, health check on `/health` |
+| `mongo` | `mongo:7` | not published on the host, volume `mongo-data:/data/db`, `ping` health check |
+
+### Environment variables (compose)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_USER` | MongoDB root username | `admin` |
+| `DB_PASSWORD` | MongoDB root password | `password` |
+| `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:5173` |
+
+These are read from a local `.env` file (see `.env.example`) or fall back to the defaults above. The authenticated connection string `MONGO_URI=mongodb://<DB_USER>:<DB_PASSWORD>@mongo:27017/workshopsdb?authSource=admin` is built automatically for the `api` service.
+
+### Persistence
+
+MongoDB data is stored in the named volume `mongo-data`, so it survives `docker compose down` and container recreation. Use `docker compose down -v` to wipe it.
+
 ## Project Structure
 
 ```
