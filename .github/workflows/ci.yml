@@ -1,0 +1,50 @@
+# Continuous Integration workflow.
+# Identical in both repositories: run-tests.sh auto-detects the project type
+# (React or NestJS), so the same file works for the front-end and the back-end.
+name: CI
+
+# Trigger on every push and on every pull request.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write # required by action-junit-report to publish the check run
+    steps:
+      # Fetch the repository sources.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install Node.js 22 and cache the npm downloads to speed up subsequent runs.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Run the unified test script (installs deps, cleans artifacts, runs the
+      # suite, and writes a JUnit report to test-results/junit.xml).
+      - name: Run unified test script
+        run: bash run-tests.sh
+
+      # Surface the test results in the GitHub UI (checks + annotations + summary).
+      # always() so the report is published even when the test step fails.
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: test-results/junit.xml
+
+      # Keep the raw JUnit file as a downloadable artifact of the run.
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: test-results/junit.xml
+          if-no-files-found: error
