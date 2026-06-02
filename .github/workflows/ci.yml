@@ -3,11 +3,11 @@
 # (React or NestJS), so the same file works for the front-end and the back-end.
 name: CI
 
-# Trigger on every push, on every pull request, and manually (for releases).
+# Trigger on every push and on every pull request.
+# Releases live in a dedicated, manually-triggered workflow (release.yml).
 on:
   push:
   pull_request:
-  workflow_dispatch:
 
 jobs:
   test:
@@ -79,60 +79,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: ${{ github.event_name != 'pull_request' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    needs: test # never release a build whose tests fail
-    # Manual trigger only, and only from main (semantic-release also enforces this).
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write # create the git tag, the release commit and the GitHub release
-      issues: write # semantic-release comments on related issues
-      pull-requests: write # semantic-release comments on related PRs
-      packages: write # push the versioned image to GHCR
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # semantic-release needs the full history and tags
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Analyze the Conventional Commits, bump the version in package.json,
-      # generate the changelog, create the GitHub release and the git tag.
-      # The exec plugin exposes the computed version as the step output
-      # "new_release_version" (empty when no release is warranted).
-      - name: Semantic Release
-        id: semantic
-        run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # The steps below run only when a new version was actually released.
-      # Tag the image with the semantic version (e.g. 1.2.3).
-      - name: Extract image metadata
-        if: steps.semantic.outputs.new_release_version != ''
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ steps.semantic.outputs.new_release_version }}
-
-      - name: Build and push versioned image
-        if: steps.semantic.outputs.new_release_version != ''
-        uses: ./.github/actions/docker-build-push
-        with:
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          push: "true"
           github-token: ${{ secrets.GITHUB_TOKEN }}

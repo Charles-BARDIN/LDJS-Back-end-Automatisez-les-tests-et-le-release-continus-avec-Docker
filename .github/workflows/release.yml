@@ -1,0 +1,73 @@
+# Release workflow.
+# Manually triggered only: publishes a semantic-release version, a GitHub
+# release with changelog, and a SemVer-tagged Docker image on GHCR.
+# Identical in both repositories (run-tests.sh auto-detects the project type).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "release" to confirm publishing a new release'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    # Safety: only from main, and only when the confirmation was typed exactly.
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'release'
+    permissions:
+      contents: write # create the git tag, the release commit and the GitHub release
+      issues: write # semantic-release comments on related issues
+      pull-requests: write # semantic-release comments on related PRs
+      packages: write # push the versioned image to GHCR
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # semantic-release needs the full history and tags
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Gate: never release if the tests fail (non-zero exit stops the job).
+      - name: Run unified test script
+        run: bash run-tests.sh
+
+      # Analyze the Conventional Commits, bump the version in package.json,
+      # generate the changelog, create the GitHub release and the git tag.
+      # The exec plugin exposes the computed version as the step output
+      # "new_release_version" (empty when no release is warranted).
+      - name: Semantic Release
+        id: semantic
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The steps below run only when a new version was actually released.
+      # Tag the image with the semantic version (e.g. 1.2.3).
+      - name: Extract image metadata
+        if: steps.semantic.outputs.new_release_version != ''
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.semantic.outputs.new_release_version }}
+
+      - name: Build and push versioned image
+        if: steps.semantic.outputs.new_release_version != ''
+        uses: ./.github/actions/docker-build-push
+        with:
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          push: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
