@@ -39,8 +39,8 @@ Before you begin, ensure you have installed:
 
 1. Clone this repository:
 ```bash
-git clone <repository-url>
-cd p6-dfsjs-backend
+git clone https://github.com/Charles-BARDIN/LDJS-Back-end-Automatisez-les-tests-et-le-release-continus-avec-Docker.git
+cd LDJS-Back-end-Automatisez-les-tests-et-le-release-continus-avec-Docker
 ```
 
 2. Install dependencies:
