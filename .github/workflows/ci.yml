@@ -19,11 +19,11 @@ jobs:
     steps:
       # Fetch the repository sources.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Install Node.js 22 and cache the npm downloads to speed up subsequent runs.
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -37,14 +37,14 @@ jobs:
       # always() so the report is published even when the test step fails.
       - name: Publish test report
         if: always()
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: test-results/junit.xml
 
       # Keep the raw JUnit file as a downloadable artifact of the run.
       - name: Upload JUnit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: junit-report
           path: test-results/junit.xml
@@ -59,13 +59,13 @@ jobs:
       packages: write # required to push the image to GHCR
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Compute image tags: the branch name and the commit SHA.
       # metadata-action lowercases the image name (GHCR requires lowercase).
       - name: Extract image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
